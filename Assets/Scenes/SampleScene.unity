@@ -2173,10 +2173,10 @@ Camera:
     width: 1
     height: 1
   near clip plane: 0.3
-  far clip plane: 1000
+  far clip plane: 20
   field of view: 34
   orthographic: 1
-  orthographic size: 5
+  orthographic size: 4
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
@@ -2335,6 +2335,8 @@ GameObject:
   - component: {fileID: 1617114385}
   - component: {fileID: 1617114384}
   - component: {fileID: 1617114388}
+  - component: {fileID: 1617114390}
+  - component: {fileID: 1617114389}
   m_Layer: 6
   m_Name: Square
   m_TagString: Untagged
@@ -2515,6 +2517,37 @@ BoxCollider2D:
   m_AutoTiling: 0
   m_Size: {x: 1, y: 1}
   m_EdgeRadius: 0
+--- !u!114 &1617114389
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1617114383}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f7413043a73140ed9fc90bbd59b0ab01, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Core.Combat.DamageFlash
+  healthComponent: {fileID: 1617114390}
+  flashColor: {r: 1, g: 0, b: 0, a: 1}
+  flashDuration: 0.1
+  numberOfFlashes: 2
+--- !u!114 &1617114390
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1617114383}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5a90140b0e404c06bdb2e6bba589c0a6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Core.Combat.Health
+  maxHealth: 100
+  invincibilityDuration: 1
+  rb: {fileID: 1617114384}
 --- !u!1 &1763601399
 GameObject:
   m_ObjectHideFlags: 0

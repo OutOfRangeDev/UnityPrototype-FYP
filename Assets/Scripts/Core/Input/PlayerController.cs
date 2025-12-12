@@ -43,13 +43,13 @@ namespace Core.Input
         private void OnEnable()
         {
             inputReader.OnJumpInitiated += HandleJumpInitiated;
-            inputReader.OnAttack += HandleAttack;
+            inputReader.OnAttack += HandleJumpCancelled;
         }
 
         private void OnDisable()
         {
             inputReader.OnJumpInitiated -= HandleJumpInitiated;
-            inputReader.OnAttack -= HandleAttack;
+            inputReader.OnAttack -= HandleJumpCancelled;
         }
 
         private void Update()
@@ -113,11 +113,6 @@ namespace Core.Input
             {
                 _rb.linearVelocity = new Vector2(_rb.linearVelocity.x, _rb.linearVelocity.y * jumpCutMultiplier);
             }
-        }
-
-        private void HandleAttack()
-        {
-            
         }
 
         private void TurnCheck(bool moveRight)
