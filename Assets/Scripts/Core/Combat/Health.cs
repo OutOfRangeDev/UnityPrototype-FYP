@@ -82,6 +82,8 @@ namespace Core.Combat
             _isInvincible = false;
         }
         
+        public void SetInvincibility(bool value) => _isInvincible = value;
+        
         [ContextMenu( "Heal" )]
         public void Heal()
         {

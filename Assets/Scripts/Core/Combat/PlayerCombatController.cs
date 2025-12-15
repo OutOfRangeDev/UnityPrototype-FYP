@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using Core.Input;
+using Unity.Cinemachine;
 using UnityEngine;
 
 namespace Core.Combat
@@ -19,11 +20,20 @@ namespace Core.Combat
         [SerializeField] private AttackDefinition airAttack;
         [SerializeField] private AttackDefinition launcherAttack;
         
+        [Header( "Camera" )]
+        [SerializeField] private CinemachineImpulseSource impulseSource;
+        [SerializeField] private float stopTimeDuration = 0.1f;
+        
         // State
         private bool _isAttacking;
         private int _comboIndex;
         private float _lastAttackTime;
-        private float _comboResetTime = 1f;
+        private readonly float _comboResetTime = 1f;
+
+        private void Start()
+        {
+            if(impulseSource == null) impulseSource = GetComponent<CinemachineImpulseSource>();
+        }
 
         private void OnEnable()
         {
@@ -53,7 +63,7 @@ namespace Core.Combat
                 attackToPerform = launcherAttack;
                 _comboIndex = 0;
             }
-            // If we are not in the ground, then it means in the air, air attack.
+            // If we are not on the ground, then it means in the air, air attack.
             else if (!isGrounded)
             {
                 attackToPerform = airAttack;
@@ -109,13 +119,14 @@ namespace Core.Combat
 
         private void DetectAndDamage(AttackDefinition attack)
         {
-            // Calculate the hitbox position, based in direction.
+            // Calculate the hitbox position, based on the direction.
             float direction = transform.localScale.x > 0 ? 1 : -1;
             Vector2 offset = new Vector2(attack.hitboxOffset.x * direction, attack.hitboxOffset.y);
             Vector2 center = ( Vector2 ) attackOrigin.position + offset;
             
             // Get everything inside the collider.
             Collider2D[] hitEnemies = Physics2D.OverlapBoxAll(center, attack.hitboxSize, 0f, enemyLayer);
+            bool hitSomething = false;
 
             foreach (var enemy in hitEnemies)
             {
@@ -124,8 +135,26 @@ namespace Core.Combat
                     // Apply damage and knockback.
                     Vector2 knockbackForce = new Vector2(attack.targetKnockback.x * direction, attack.targetKnockback.y);
                     health.TakeDamage(attack.damage, knockbackForce);
+                    hitSomething = true;
                 }
             }
+
+            if (hitSomething)
+            {
+                if(impulseSource != null)
+                {
+                    float shakeMultiplier = attack.damage * 0.1f;
+                    impulseSource.GenerateImpulse(shakeMultiplier);
+                }
+                StartCoroutine(HitStopCoroutine(stopTimeDuration));
+            }
+        }
+        
+        private IEnumerator HitStopCoroutine(float duration)
+        {
+            Time.timeScale = 0f;
+            yield return new WaitForSecondsRealtime(duration);
+            Time.timeScale = 1f;
         }
 
         private bool IsGrounded()

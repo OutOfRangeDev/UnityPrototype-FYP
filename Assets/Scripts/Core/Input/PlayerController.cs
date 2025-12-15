@@ -1,4 +1,6 @@
-﻿using UnityEngine;
+﻿using System.Collections;
+using Core.Combat;
+using UnityEngine;
 
 namespace Core.Input
 {
@@ -18,6 +20,11 @@ namespace Core.Input
         [SerializeField] private float coyoteTime = 0.15f; // Time allowed to jump after leaving the ground.
         [SerializeField] private float jumpBufferTime = 0.1f; // Time allowed to queue a jump before hitting the ground.
         
+        [Header( "Dash Settings" )]
+        [SerializeField] private float dashSpeed = 24f;
+        [SerializeField] private float dashDuration = 0.2f;
+        [SerializeField] private float dashCooldown = 1f;
+        
         [Header( "Ground Detection" )]
         [SerializeField] private LayerMask groundLayerMask;
         [SerializeField] private Transform groundCheckPoint;
@@ -29,6 +36,12 @@ namespace Core.Input
         private bool _isGrounded;
         private bool _isFacingRight = true;
         
+        private bool _isDashing;
+        private float _lastDashTime = -10f;
+        private float _originalGravity;
+        private float _dashDirection;
+        private Health _health;
+        
         //Timers
         private float _coyoteTimeCounter;
         private float _jumpBufferCounter;
@@ -38,18 +51,25 @@ namespace Core.Input
             _rb = GetComponent<Rigidbody2D>();
             _rb.gravityScale = gravityScale;
         }
-
-
+        
+        private void Start()
+        {
+            _health = GetComponent<Health>();
+            _originalGravity = _rb.gravityScale;
+        }
+        
         private void OnEnable()
         {
             inputReader.OnJumpInitiated += HandleJumpInitiated;
             inputReader.OnAttack += HandleJumpCancelled;
+            inputReader.OnDash += HandleDash;
         }
 
         private void OnDisable()
         {
             inputReader.OnJumpInitiated -= HandleJumpInitiated;
             inputReader.OnAttack -= HandleJumpCancelled;
+            inputReader.OnDash -= HandleDash;
         }
 
         private void Update()
@@ -73,6 +93,13 @@ namespace Core.Input
 
         private void FixedUpdate()
         {
+            // If dashing, override all other movement.
+            if (_isDashing)
+            {
+                _rb.linearVelocity = new Vector2(_dashDirection * dashSpeed, 0f);
+                return;
+            }
+            
             // 4. Ground Check.
             _isGrounded = Physics2D.OverlapBox(groundCheckPoint.position, groundCheckSize, 0, groundLayerMask);
             
@@ -91,7 +118,9 @@ namespace Core.Input
                 PerformJump();
             }
         }
-
+        
+        #region Jump
+        
         private void HandleJumpInitiated()
         {
             // Instead of jumping right away, we queue the jump.
@@ -114,6 +143,47 @@ namespace Core.Input
                 _rb.linearVelocity = new Vector2(_rb.linearVelocity.x, _rb.linearVelocity.y * jumpCutMultiplier);
             }
         }
+        
+        #endregion
+
+        #region Dash
+
+        private void HandleDash()
+        {
+            if (_isDashing || Time.time - _lastDashTime < dashCooldown) return;
+            
+            StartCoroutine(PerformDash());
+        }
+
+        private IEnumerator PerformDash()
+        {
+            // 1. Prepare for the dash.
+            _isDashing = true;
+            _lastDashTime = Time.time;
+            _health?.SetInvincibility(true);
+
+            // 2. Calculate the dash direction.
+            if(Mathf.Abs(_moveInput.x) > 0.1f)
+                _dashDirection = Mathf.Sign(_moveInput.x);
+            else
+                _dashDirection = _isFacingRight ? 1f : -1f;
+            
+            // 3. Dash!
+            _originalGravity = _rb.gravityScale;
+            _rb.gravityScale = 0;
+            
+            _rb.linearVelocity = new Vector2(_dashDirection * dashSpeed, _rb.linearVelocity.y);
+            
+            yield return new WaitForSeconds(dashDuration);
+            
+            // 4. Reset.
+            _rb.gravityScale = _originalGravity;
+            _rb.linearVelocity = Vector2.zero;
+            _isDashing = false;
+            _health?.SetInvincibility(false);
+        }
+        
+        #endregion
 
         private void TurnCheck(bool moveRight)
         {
