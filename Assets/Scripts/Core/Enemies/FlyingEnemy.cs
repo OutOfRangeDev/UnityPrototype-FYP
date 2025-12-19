@@ -12,7 +12,7 @@ namespace Core.Enemies
         protected override void LogicPatrol()
         {
             float newY = transform.position.y + (Mathf.Sin(Time.time * bobFrequency) * bobAmplitude * Time.deltaTime);
-            Rb.linearVelocity = new Vector2(0, Mathf.Sin(Time.time * bobFrequency));
+            Rb.linearVelocity = new Vector2(0, Mathf.Sin(newY));
         }
 
         protected override void LogicChase()

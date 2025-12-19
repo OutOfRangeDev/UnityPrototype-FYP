@@ -10,6 +10,8 @@ namespace Core.Input
         event UnityAction OnJumpCanceled;
         event UnityAction OnAttack;
         event UnityAction OnDash;
+        event UnityAction OnHook;
+        event UnityAction OnGun;
     }
 }
 

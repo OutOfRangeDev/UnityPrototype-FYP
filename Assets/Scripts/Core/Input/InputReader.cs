@@ -8,7 +8,6 @@ namespace Core.Input
     [CreateAssetMenu(fileName = "InputReader", menuName = "Input/InputReader")]
     public class InputReader : ScriptableObject, IInputProvider, AutoPlayerInput.IPlayerActions
     {
-
         private AutoPlayerInput _gameInput;
         
         public Vector2 MoveDirection { get; set; }
@@ -17,6 +16,8 @@ namespace Core.Input
         public event UnityAction OnJumpCanceled = delegate { };
         public event UnityAction OnAttack = delegate { };
         public event UnityAction OnDash = delegate { };
+        public event UnityAction OnHook = delegate { };
+        public event UnityAction OnGun = delegate { };
 
         private void OnEnable()
         {
@@ -72,6 +73,22 @@ namespace Core.Input
             if (context.phase == InputActionPhase.Performed)
             {
                 OnDash.Invoke();
+            }
+        }
+
+        void AutoPlayerInput.IPlayerActions.OnHook(InputAction.CallbackContext context)
+        {
+            if (context.phase == InputActionPhase.Performed)
+            {
+                OnHook.Invoke();
+            }
+        }
+
+        void AutoPlayerInput.IPlayerActions.OnGun(InputAction.CallbackContext context)
+        {
+            if (context.phase == InputActionPhase.Performed)
+            {
+                OnGun.Invoke();
             }
         }
     }

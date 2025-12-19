@@ -17,6 +17,7 @@ namespace Core.Combat
         public event UnityAction<int> OnHealthChanged = delegate { };
         public event UnityAction OnTakeDamage = delegate { };
         public event UnityAction OnDeath = delegate { };
+        public event UnityAction<Vector3, int> OnDamageTaken = delegate { };
         
         private int _currentHealth;
         private bool _isInvincible;
@@ -46,6 +47,7 @@ namespace Core.Combat
             // 3. Notify the listeners
             OnHealthChanged.Invoke(_currentHealth);
             OnTakeDamage.Invoke();
+            OnDamageTaken.Invoke(transform.position, amount);
             
             // 4. Knockback
             if (rb != null && knockBackForce != Vector2.zero)

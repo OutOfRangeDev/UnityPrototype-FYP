@@ -46,6 +46,8 @@ namespace Core.Input
         private float _coyoteTimeCounter;
         private float _jumpBufferCounter;
 
+        #region Lifetime Cycle
+
         private void Awake()
         {
             _rb = GetComponent<Rigidbody2D>();
@@ -118,6 +120,8 @@ namespace Core.Input
                 PerformJump();
             }
         }
+
+        #endregion
         
         #region Jump
         
@@ -148,6 +152,8 @@ namespace Core.Input
 
         #region Dash
 
+        public bool IsDashing => _isDashing;
+        
         private void HandleDash()
         {
             if (_isDashing || Time.time - _lastDashTime < dashCooldown) return;

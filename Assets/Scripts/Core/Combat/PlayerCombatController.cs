@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using Core.Combat.Combat_Attacks;
 using Core.Input;
 using Unity.Cinemachine;
 using UnityEngine;
@@ -10,83 +11,135 @@ namespace Core.Combat
         [Header( "Dependencies" )]
         [SerializeField] private InputReader inputReader;
         [SerializeField] private Rigidbody2D rb;
-
+        [SerializeField] private PlayerController playerController;
+        
         [Header("Configuration")] 
         [SerializeField] private LayerMask enemyLayer;
         [SerializeField] private Transform attackOrigin;
         
         [Header( "Move List" )]
         [SerializeField] private AttackDefinition[] groundCombo;
-        [SerializeField] private AttackDefinition airAttack;
+        [SerializeField] private AttackDefinition[] airCombo;
+        [SerializeField] private AttackDefinition dashAttack;
         [SerializeField] private AttackDefinition launcherAttack;
+        
+        [Header( "Tools" )]
+        [SerializeField] private Hook hook;
+        [SerializeField] private Gun gun;
+        
         
         [Header( "Camera" )]
         [SerializeField] private CinemachineImpulseSource impulseSource;
         [SerializeField] private float stopTimeDuration = 0.1f;
         
+        [Header("Combo Logic")]
+        [SerializeField] private float comboResetTime = 1f;
+        [SerializeField] private float stepMultiplier = 0.2f;
+        [SerializeField] private float chainMultiplier = 0.1f;
+        
         // State
         private bool _isAttacking;
-        private int _comboIndex;
         private float _lastAttackTime;
-        private readonly float _comboResetTime = 1f;
+        private int _comboIndex;
+        private int _globalChainCount;
+        private float _extraBonus;
+
+        private bool IsBusy()
+        {
+            return _isAttacking|| (hook != null && hook.IsHooking) || (gun != null && gun.IsFiring);
+        }
 
         private void Start()
         {
             if(impulseSource == null) impulseSource = GetComponent<CinemachineImpulseSource>();
+            if(playerController == null) playerController = GetComponent<PlayerController>();
         }
 
         private void OnEnable()
         {
             inputReader.OnAttack += HandleAttackInput;
+            inputReader.OnHook += HandleHook;
+            inputReader.OnGun += HandleGun;
         }
 
         private void OnDisable()
         {
             inputReader.OnAttack -= HandleAttackInput;
+            inputReader.OnHook -= HandleHook;
+            inputReader.OnGun -= HandleGun;
         }
 
         private void HandleAttackInput()
         {
-            if (_isAttacking) return;
+            if (IsBusy()) return;
             
-            // 1. Check the input. And if we are on the ground.
+            if(Time.time - _lastAttackTime > comboResetTime)
+            {
+                // Reset combo
+                _comboIndex = 0;
+                _globalChainCount = 0;
+            }
+
+            _extraBonus = 0;
             float yInput = inputReader.MoveDirection.y;
             bool isGrounded = IsGrounded();
-            
-            // 2. Reset the last attack performed.
+            bool isDashing = playerController.IsDashing;
             AttackDefinition attackToPerform;
             
-            // 3. Check for each attack condition.
-            // If we are on the ground and holding up, then launch to the air.
-            if (isGrounded && yInput > 0.5f)
+            // Attack Selection
+            
+            // If only dashing
+            if (isDashing)
+            {
+                attackToPerform = dashAttack;
+                _comboIndex = 0;
+                _extraBonus = 0.2f; // Extra bonus for dash attacks (style)
+            }
+            
+            if (isGrounded && yInput > 0.5f && !isDashing)
             {
                 attackToPerform = launcherAttack;
                 _comboIndex = 0;
             }
-            // If we are not on the ground, then it means in the air, air attack.
-            else if (!isGrounded)
+            
+            else if(!isGrounded && !isDashing)
             {
-                attackToPerform = airAttack;
+                if (_comboIndex >= airCombo.Length)
+                {
+                    _comboIndex = 0;
+                    _extraBonus = 0.2f; // Extra bonus for completing combo.
+                }
+                attackToPerform = airCombo[_comboIndex];
             }
-            // If not, then ground combo.
             else
             {
-                // Reset the combo if we waited too long.
-                if (Time.time - _lastAttackTime > _comboResetTime) _comboIndex = 0;
-                // Or we already performed the combo.
-                if(_comboIndex >= groundCombo.Length) _comboIndex = 0;
-                
+                if (_comboIndex >= groundCombo.Length)
+                {
+                    _comboIndex = 0;
+                    _extraBonus = 0.2f; // Extra bonus for completing combo.
+                }
                 attackToPerform = groundCombo[_comboIndex];
-                _comboIndex++;
             }
 
             if (attackToPerform != null)
             {
-                StartCoroutine(PerformAttack(attackToPerform));
+                float stepBonus = _comboIndex * stepMultiplier;
+                
+                float chainBonus = _globalChainCount * chainMultiplier;
+
+                float totalMultiplier = 1f + chainBonus + stepBonus + _extraBonus;
+
+                if (attackToPerform == groundCombo[_comboIndex] || attackToPerform == airCombo[_comboIndex])
+                {
+                    _comboIndex++;
+                }
+                _globalChainCount++;
+                
+                StartCoroutine(PerformAttack(attackToPerform, totalMultiplier));
             }
         }
 
-        private IEnumerator PerformAttack(AttackDefinition attack)
+        private IEnumerator PerformAttack(AttackDefinition attack, float damageMultiplier)
         {
             _isAttacking = true;
             _lastAttackTime = Time.time;
@@ -108,7 +161,7 @@ namespace Core.Combat
             }
             
             // 3. Detect the enemies
-            DetectAndDamage(attack);
+            DetectAndDamage(attack, damageMultiplier);
             yield return new WaitForSeconds(attack.activeTime);
             
             // 4. Ending phase. Cooldown.
@@ -117,7 +170,7 @@ namespace Core.Combat
             _isAttacking = false;
         }
 
-        private void DetectAndDamage(AttackDefinition attack)
+        private void DetectAndDamage(AttackDefinition attack, float damageMultiplier)
         {
             // Calculate the hitbox position, based on the direction.
             float direction = transform.localScale.x > 0 ? 1 : -1;
@@ -134,7 +187,11 @@ namespace Core.Combat
                 {
                     // Apply damage and knockback.
                     Vector2 knockbackForce = new Vector2(attack.targetKnockback.x * direction, attack.targetKnockback.y);
-                    health.TakeDamage(attack.damage, knockbackForce);
+
+                    int baseDamage = attack.damage;
+                    int finalDamage = Mathf.RoundToInt(baseDamage * damageMultiplier); // Apply combo bonus
+                    
+                    health.TakeDamage(finalDamage, knockbackForce);
                     hitSomething = true;
                 }
             }
@@ -160,6 +217,30 @@ namespace Core.Combat
         private bool IsGrounded()
         {
             return Physics2D.Raycast(transform.position, Vector2.down, 1.1f, LayerMask.GetMask("Ground"));
+        }
+        
+        private void HandleHook()
+        {
+            if(IsBusy()) return;
+            
+            if(hook != null)
+            {
+                float facingDir = transform.localScale.x > 0 ? 1 : -1;
+                Vector2 dir = new Vector2(facingDir, 0);
+                hook.FireHook(dir);
+            }
+        }
+
+        private void HandleGun()
+        {
+            if (IsBusy()) return;
+            
+            if(gun != null)
+            {
+                float facingDir = transform.localScale.x > 0 ? 1 : -1;
+                Vector2 dir = new Vector2(facingDir, 0);
+                gun.Shoot(dir);
+            }
         }
         
         // --------------- Gizmos debug ------------------
