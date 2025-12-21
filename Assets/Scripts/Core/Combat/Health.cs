@@ -7,7 +7,8 @@ namespace Core.Combat
     public class Health : MonoBehaviour, IDamageable
     {
         [Header( "Stats" )]
-        [SerializeField] private int maxHealth = 100;
+        [SerializeField]
+        protected int maxHealth = 100;
         [SerializeField] private float invincibilityDuration = 1f;
         
         [Header( "Dependencies" )]
@@ -18,8 +19,8 @@ namespace Core.Combat
         public event UnityAction OnTakeDamage = delegate { };
         public event UnityAction OnDeath = delegate { };
         public event UnityAction<Vector3, int> OnDamageTaken = delegate { };
-        
-        private int _currentHealth;
+
+        protected int _currentHealth;
         private bool _isInvincible;
         
         public bool IsAlive => _currentHealth > 0;
@@ -36,7 +37,7 @@ namespace Core.Combat
             OnHealthChanged.Invoke(_currentHealth);
         }
 
-        public bool TakeDamage(int amount, Vector2 knockBackForce)
+        public virtual bool TakeDamage(int amount, Vector2 knockBackForce)
         {
             // 1. If it's alive or invincible, don't take damage.
             if(!IsAlive || _isInvincible) return false;
